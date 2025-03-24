@@ -127,7 +127,7 @@ public class ActiveOutreachAgentJob {
     DataStream<String> activeEngageStream = AsyncDataStream.unorderedWait(
         leadToActivelyEngageStream,
         new ActiveOutreachFunction(apiKey),
-        60, // Timeout
+        90, // Timeout
         TimeUnit.SECONDS,
         10 // Max concurrent async requests
     );

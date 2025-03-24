@@ -109,7 +109,7 @@ public class LeadIngestionAgentJob {
     DataStream<String> leadResearchStream = AsyncDataStream.unorderedWait(
         incomingLeadsStream,
         new LeadResearchFunction(apiKey),
-        30, // Timeout
+        90, // Timeout
         TimeUnit.SECONDS,
         10 // Max concurrent async requests
     );
@@ -204,19 +204,19 @@ public class LeadIngestionAgentJob {
                           .build())
                       .build())
                   .build())
-              .addTool(ChatCompletionTool.builder()
-                  .function(FunctionDefinition.builder()
-                      .name("getCompanyWebsite")
-                      .description("Gets the company website page details.")
-                      .parameters(FunctionParameters.builder()
-                          .putAdditionalProperty("type", JsonValue.from("object"))
-                          .putAdditionalProperty(
-                              "properties", JsonValue.from(Map.of("url", Map.of("type", "string"))))
-                          .putAdditionalProperty("required", JsonValue.from(List.of("url")))
-                          .putAdditionalProperty("additionalProperties", JsonValue.from(false))
-                          .build())
-                      .build())
-                  .build())
+              // .addTool(ChatCompletionTool.builder()
+              //     .function(FunctionDefinition.builder()
+              //         .name("getCompanyWebsite")
+              //         .description("Gets the company website page details.")
+              //         .parameters(FunctionParameters.builder()
+              //             .putAdditionalProperty("type", JsonValue.from("object"))
+              //             .putAdditionalProperty(
+              //                 "properties", JsonValue.from(Map.of("url", Map.of("type", "string"))))
+              //             .putAdditionalProperty("required", JsonValue.from(List.of("url")))
+              //             .putAdditionalProperty("additionalProperties", JsonValue.from(false))
+              //             .build())
+              //         .build())
+              //     .build())
               .addDeveloperMessage(SYSTEM_PROMPT)
               .addUserMessage(buildPrompt(leadJson, Constants.PRODUCT_DESCRIPTION));
 
@@ -309,7 +309,6 @@ public class LeadIngestionAgentJob {
     private static String callFunction(ChatCompletionMessageToolCall.Function function) {
       if (function.name().equals("getCompanyWebsite")) {
         return AgentTools.getCompanyWebsite(function);
-
       } else if (function.name().equals("getSalesforceData")) {
         return AgentTools.getSalesforceData(function);
       } else if (function.name().equals("getClearbitData")) {
