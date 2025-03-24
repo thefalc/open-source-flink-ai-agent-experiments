@@ -1,3 +1,20 @@
+/**
+ * NurtureCampaignAgentJob is a Flink streaming job that generates personalized, multi-touch nurture email
+ * campaigns for leads marked as "Nurture" by the scoring pipeline.
+ *
+ * <p>Key Responsibilities:
+ * <ul>
+ *   <li>Consumes scored leads from the "lead_scoring_output" Kafka topic.</li>
+ *   <li>Filters for leads with a next_step of "Nurture".</li>
+ *   <li>Asynchronously generates a 3-email nurture sequence using GPT-4 Turbo, informed by lead data and enrichment tools.</li>
+ *   <li>Utilizes tools like Clearbit, Salesforce, LinkedIn, and company websites to personalize campaign content.</li>
+ *   <li>Outputs structured JSON campaigns to the "email_campaigns" Kafka topic for downstream orchestration.</li>
+ * </ul>
+ *
+ * <p>This job helps build engagement over time by delivering context-aware, content-driven email sequences
+ * to prospects who are not yet ready for direct sales outreach.
+ */
+
 package agents;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;

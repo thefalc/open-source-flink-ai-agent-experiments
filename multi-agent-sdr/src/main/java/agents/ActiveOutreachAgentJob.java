@@ -1,3 +1,18 @@
+/**
+ * ActiveOutreachAgentJob is a Flink streaming job that listens for high-quality leads from a Kafka topic,
+ * filters those flagged for active engagement, and asynchronously generates personalized outreach emails using OpenAI.
+ *
+ * <p>Key Responsibilities:
+ * <ul>
+ *   <li>Consumes scored leads from the "lead_scoring_output" Kafka topic.</li>
+ *   <li>Filters for leads with a next_step of "Actively Engage".</li>
+ *   <li>Uses the OpenAI API (GPT-4 Turbo) to generate highly personalized email campaigns tailored to the lead's role,
+ *       company, and industry context.</li>
+ *   <li>Enriches prompt context via tools like Salesforce, Clearbit, LinkedIn, and company website data.</li>
+ *   <li>Publishes the generated emails as JSON to the "email_campaigns" Kafka topic for downstream execution.</li>
+ * </ul>
+ */
+
 package agents;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;

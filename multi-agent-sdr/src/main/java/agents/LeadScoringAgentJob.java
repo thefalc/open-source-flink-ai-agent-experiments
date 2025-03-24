@@ -1,3 +1,16 @@
+/**
+ * LeadScoringAgentJob is a Flink streaming job that processes enriched lead data and applies AI-driven logic
+ * to generate lead scores, recommended next steps, and talking points for sales outreach.
+ *
+ * <p>Key Responsibilities:
+ * <ul>
+ *   <li>Consumes researched leads from the "lead_ingestion_output" Kafka topic.</li>
+ *   <li>Asynchronously scores each lead using GPT-4 Turbo based on form responses, firmographic data, and research context.</li>
+ *   <li>Evaluates lead fit based on buyer persona, company profile, and readiness signals.</li>
+ *   <li>Outputs a structured evaluation (score, next step, and talking points) to the "lead_scoring_output" Kafka topic.</li>
+ * </ul>
+ */
+
 package agents;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;

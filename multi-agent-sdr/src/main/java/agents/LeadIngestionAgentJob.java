@@ -1,3 +1,19 @@
+/**
+ * LeadIngestionAgentJob is a Flink streaming job that performs asynchronous research on incoming leads
+ * to enrich them with contextual insights for downstream scoring and engagement workflows.
+ *
+ * <p>Key Responsibilities:
+ * <ul>
+ *   <li>Consumes raw lead submissions from the "incoming_leads" Kafka topic.</li>
+ *   <li>Asynchronously enriches each lead using GPT-4 Turbo, guided by a structured research prompt.</li>
+ *   <li>Incorporates auxiliary data via tools including Salesforce, Clearbit, and the lead's company website.</li>
+ *   <li>Produces a research summary and lead context JSON to the "lead_ingestion_output" Kafka topic.</li>
+ * </ul>
+ *
+ * <p>This job acts as the first step in the AI-driven sales funnel, automating research and segmentation
+ * to support lead scoring, prioritization, and personalized outreach.
+ */
+
 package agents;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
