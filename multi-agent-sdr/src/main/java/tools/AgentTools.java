@@ -8,7 +8,40 @@ import com.openai.core.JsonValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import static com.openai.core.ObjectMappers.jsonMapper;
 
+import java.util.regex.Pattern;
+
 public class AgentTools {
+  // Pattern to remove non-printable ASCII and non-UTF characters
+  private static final Pattern INVALID_CHARS = Pattern.compile("[^\\x20-\\x7E]");
+
+  /**
+   * Cleans the input JSON string by removing non-printable and invalid
+   * characters.
+   */
+  public static String cleanJsonString(String json) {
+    // Removes characters outside printable ASCII range
+    return INVALID_CHARS.matcher(json).replaceAll("");
+  }
+
+  public static String getRecentLinkedInPosts(ChatCompletionMessageToolCall.Function function) {
+    System.out.println("getRecentLinkedInPosts");
+    JsonValue arguments;
+    try {
+      arguments = JsonValue.from(jsonMapper().readTree(function.arguments()));
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("Bad function arguments", e);
+    }
+
+    System.out.println(arguments);
+
+    return "LinkedIn Recent Activity:\\n" + //
+                "- Liked a post about B2B sales productivity tools\\n" + //
+                "- Commented on an article about restaurant technology trends\\n" + //
+                "- Shared a post about improving sales team performance in the hospitality industry\\n" + //
+                "\\n" + //
+                "This fictional activity suggests potential interest areas that could be relevant for an email campaign targeting Sean, focusing on sales efficiency and restaurant/hospitality technology solutions.";
+  }
+
   public static String getClearbitData(ChatCompletionMessageToolCall.Function function) {
     System.out.println("getClearbitData");
     JsonValue arguments;
@@ -23,7 +56,7 @@ public class AgentTools {
     // String email = ((JsonObject) arguments).values().get("email").asStringOrThrow();
     // String companyWebsite = ((JsonObject) arguments).values().get("company_website").asStringOrThrow();
     // String companyName = ((JsonObject) arguments).values().get("company_name").asStringOrThrow();
-    // String title = ((JsonObject) arguments).values().get("title").asStringOrThrow();
+    // String title = ((JsonObject) arguments).values().get("job_title").asStringOrThrow();
     // String name = ((JsonObject) arguments).values().get("name").asStringOrThrow();
 
     // System.out.println(email + " " + companyWebsite);
@@ -127,7 +160,7 @@ public class AgentTools {
     // String email = ((JsonObject) arguments).values().get("email").asStringOrThrow();
     // String companyWebsite = ((JsonObject) arguments).values().get("company_website").asStringOrThrow();
     // String companyName = ((JsonObject) arguments).values().get("company_name").asStringOrThrow();
-    // String title = ((JsonObject) arguments).values().get("title").asStringOrThrow();
+    // String title = ((JsonObject) arguments).values().get("job_title").asStringOrThrow();
     // String name = ((JsonObject) arguments).values().get("name").asStringOrThrow();
 
     // System.out.println(email + " " + companyWebsite);

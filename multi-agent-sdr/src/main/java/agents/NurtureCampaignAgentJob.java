@@ -16,6 +16,8 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -50,15 +52,17 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-public class LeadIngestionAgentJob {
-  public static final String SYSTEM_PROMPT = """
-      You're an Industry Research Specialist at StratusDB, a cloud-native, AI-powered data warehouse built for B2B
-      enterprises that need fast, scalable, and intelligent data infrastructure. StratusDB simplifies complex data
-      pipelines, enabling companies to store, query, and operationalize their data in real time.
+public class NurtureCampaignAgentJob {
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
-      Your role is to conduct research on potential leads to assess their fit for StratusAI Warehouse and provide key
-      insights for scoring and outreach planning. Your research will focus on industry trends, company background,
-      and AI adoption potential to ensure a tailored and strategic approach.
+  public static final String SYSTEM_PROMPT = """
+      You're the AI Nurture Campaign Specialist at StratusDB, a cloud-native, AI-powered data
+      warehouse built for B2B enterprises that need fast, scalable, and intelligent data
+      infrastructure. StratusDB simplifies complex data pipelines, enabling companies to store,
+      query, and operationalize their data in real time.
+
+      You design multi-step nurture campaigns that educate prospects and drive engagement over time.
+      Your emails are personalized, strategically sequenced, and content-driven, ensuring relevance at every stage.
       """;
 
   public static void main(String[] args) throws Exception {
@@ -77,23 +81,37 @@ public class LeadIngestionAgentJob {
       producerConfig.load(stream);
     }
 
-    KafkaSource<String> incomingLeadsSource = KafkaSource.<String>builder()
+    KafkaSource<String> scoredLeadsSource = KafkaSource.<String>builder()
         .setProperties(consumerConfig)
-        .setTopics("incoming_leads")
+        .setTopics("lead_scoring_output")
         .setStartingOffsets(OffsetsInitializer.latest())
         .setValueOnlyDeserializer(new SimpleStringSchema())
         .build();
 
-    DataStream<String> incomingLeadsStream = env
-        .fromSource(incomingLeadsSource, WatermarkStrategy.noWatermarks(), "incoming_leads_source");
+    DataStream<String> scoredLeadsStream = env
+        .fromSource(scoredLeadsSource, WatermarkStrategy.noWatermarks(), "scored_leads_source");
 
-    incomingLeadsStream.print();
+    // Only process the leads marked as "nurture"
+    DataStream<String> leadToNurtureStream = scoredLeadsStream
+        .filter(record -> {
+          try {
+            JsonNode node = objectMapper.readTree(AgentTools.cleanJsonString(record));
+            System.out.println(node);
+            return node.has("lead_evaluation")
+                && node.get("lead_evaluation").has("next_step")
+                && node.get("lead_evaluation").get("next_step").textValue().equals("Nurture");
+          } catch (Exception e) {
+            e.printStackTrace();
+            // Log or ignore malformed input
+            return false;
+          }
+        });
 
-    // Apply Async lead research
-    DataStream<String> leadResearchStream = AsyncDataStream.unorderedWait(
-        incomingLeadsStream,
-        new LeadResearchFunction(apiKey),
-        30, // Timeout
+    // Apply Async nurture campaign
+    DataStream<String> nurtureCampaignStream = AsyncDataStream.unorderedWait(
+        leadToNurtureStream,
+        new NurtureCampaignFunction(apiKey),
+        90, // Timeout
         TimeUnit.SECONDS,
         10 // Max concurrent async requests
     );
@@ -101,29 +119,26 @@ public class LeadIngestionAgentJob {
     KafkaSink<String> kafkaSink = KafkaSink.<String>builder()
         .setKafkaProducerConfig(producerConfig)
         .setRecordSerializer(KafkaRecordSerializationSchema.builder()
-            .setTopic("lead_ingestion_output")
+            .setTopic("email_campaigns")
             .setValueSerializationSchema(new SimpleStringSchema())
             .build())
         .setDeliverGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
         .build();
 
-    leadResearchStream.sinkTo(kafkaSink);
+    nurtureCampaignStream.sinkTo(kafkaSink);
 
     env.execute();
   }
 
   /**
-   * Async Function to research and assess a lead.
+   * Async Function to build a nurture campaign for the lead.
    */
-  public static class LeadResearchFunction implements AsyncFunction<String, String> {
+  public static class NurtureCampaignFunction implements AsyncFunction<String, String> {
     private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    // Pattern to remove non-printable ASCII and non-UTF characters
-    private static final Pattern INVALID_CHARS = Pattern.compile("[^\\x20-\\x7E]");
 
     private final String apiKey;
 
-    public LeadResearchFunction(String apiKey) {
+    public NurtureCampaignFunction(String apiKey) {
       this.apiKey = apiKey;
     }
 
@@ -134,16 +149,14 @@ public class LeadIngestionAgentJob {
           // Clean JSON string (remove non-printable characters)
           String cleanedJson = AgentTools.cleanJsonString(leadJson);
 
-          // Parse JSON
           JsonNode rootNode = objectMapper.readTree(cleanedJson);
-          if (!rootNode.has("lead_data")) {
-            return leadJson; // If lead_data field is missing, return original JSON
-          }
+
           // Add score to JSON
           ObjectNode leadDataNode = (ObjectNode) rootNode.get("lead_data");
+          ObjectNode leadEvaluationNode = (ObjectNode) rootNode.get("lead_evaluation");
 
           OpenAIClient client = OpenAIOkHttpClient.builder()
-              .apiKey(this.apiKey)
+              .apiKey(apiKey)
               .build();
 
           ChatCompletionCreateParams.Builder createParamsBuilder = ChatCompletionCreateParams.builder()
@@ -201,8 +214,27 @@ public class LeadIngestionAgentJob {
                           .build())
                       .build())
                   .build())
+              .addTool(ChatCompletionTool.builder()
+                  .function(FunctionDefinition.builder()
+                      .name("getRecentLinkedInPosts")
+                      .description("Gathers recent activity and mutual connections from LinkedIn to inform messaging.")
+                      .parameters(FunctionParameters.builder()
+                          .putAdditionalProperty("type", JsonValue.from("object"))
+                          .putAdditionalProperty(
+                              "properties", JsonValue.from(Map.of(
+                                  "email", Map.of("type", "string"),
+                                  "job_title", Map.of("type", "string"),
+                                  "name", Map.of("type", "string"))))
+                          .putAdditionalProperty("required",
+                              JsonValue.from(List.of("email", "job_title", "name")))
+                          .putAdditionalProperty("additionalProperties", JsonValue.from(false))
+                          .build())
+                      .build())
+                  .build())
               .addDeveloperMessage(SYSTEM_PROMPT)
-              .addUserMessage(buildPrompt(leadJson, Constants.PRODUCT_DESCRIPTION));
+              .addUserMessage(buildPrompt(objectMapper.writeValueAsString(leadDataNode),
+                  objectMapper.writeValueAsString(leadEvaluationNode),
+                  Constants.PRODUCT_DESCRIPTION));
 
           client.chat().completions().create(createParamsBuilder.build()).choices().stream()
               .map(ChatCompletion.Choice::message)
@@ -226,21 +258,28 @@ public class LeadIngestionAgentJob {
           System.out.println();
 
           // Ask a follow-up once the function calls are complete
-          createParamsBuilder.addUserMessage(buildPrompt(leadJson, Constants.PRODUCT_DESCRIPTION));
+          createParamsBuilder.addUserMessage(
+              buildPrompt(objectMapper.writeValueAsString(leadDataNode),
+                  objectMapper.writeValueAsString(leadEvaluationNode),
+                  Constants.PRODUCT_DESCRIPTION));
+
           ChatCompletion chatCompletion = client.chat().completions().create(createParamsBuilder.build());
           String responseContent = chatCompletion.choices().stream()
               .map(choice -> choice.message().content().orElse(""))
               .collect(Collectors.joining("\n"));
 
-          ((ObjectNode) rootNode).put("context", responseContent);
+          System.out.println(responseContent);
 
-          System.out.println("Full response:\n" + responseContent);
+          String campaignType = leadEvaluationNode.get("next_step").asText();
+          JsonNode emails = objectMapper.readTree(responseContent);
 
-          System.out.println("Root:");
-          System.out.println(rootNode);
+          ObjectNode campaign = objectMapper.createObjectNode();
+          campaign.put("campaign_type", campaignType);
+
+          campaign.set("emails", emails.get("emails"));
 
           // Convert back to JSON string
-          return objectMapper.writeValueAsString(rootNode);
+          return objectMapper.writeValueAsString(campaign);
         } catch (Exception e) {
           e.printStackTrace();
           return leadJson; // In case of failure, return original JSON
@@ -248,56 +287,77 @@ public class LeadIngestionAgentJob {
       }).thenAccept(result -> resultFuture.complete(Collections.singletonList(result)));
     }
 
-    /**
-     * Cleans the input JSON string by removing non-printable and invalid
-     * characters.
-     */
-    private String cleanJsonString(String json) {
-      // Removes characters outside printable ASCII range
-      return INVALID_CHARS.matcher(json).replaceAll("");
-    }
-
-    private static String buildPrompt(String leadDetails, String productDescription) {
+    private static String buildPrompt(String leadDetails, String context, String productDescription) {
       return """
-          Using the lead input data, conduct preliminary research on the lead. Focus on finding relevant data
-          that can aid in scoring the lead and planning a strategy to pitch them. You do not need to score the lead.
+           Using the lead input and evaluation data, craft a 3-email nurture campaign designed to warm up the
+          prospect and gradually build engagement over time. Each email should be sequenced strategically,
+          introducing relevant insights, addressing pain points, and progressively guiding the lead toward a conversation.
+          Link to additional marketing assets when it makes sense.
 
           Key Responsibilities:
-            - Analyze the lead's industry to identify relevant trends, market challenges, and AI adoption patterns.
-            - Gather company-specific insights, including size, market position, recent news, and strategic initiatives.
-            - Determine potential use cases for StratusAI Warehouse, focusing on how the company could benefit from real-time analytics, multi-cloud data management, and AI-driven optimization.
-            - Assess lead quality based on data completeness and engagement signals. Leads with short or vague form responses should be flagged for review but not immediately discarded.
-            - Use dedicated tools to enhance research and minimize manual work:
-              - Salesforce Data Access - Retrieves CRM data about the lead's past interactions, status, and engagement history.
-              - Company Website Lookup Tool - Fetches key details from the company's official website.
-              - Clearbit Enrichment API - Provides firmographic and contact-level data, including company size, funding, tech stack, and key decision-makers.
-            - Filter out weak leads or where the lead data doesn't look like a fit, ensuring minimal time is spent on companies unlikely to be a fit for StratusDB's offering.
+          - Personalize each email based on lead insights from Company Website, LinkedIn, Salesforce, and Clearbit.
+          - Structure a 3-email sequence, ensuring each email builds upon the previous one and provides increasing value.
+          - Align messaging with the prospect's industry, role, and pain points, demonstrating how StratusAI Warehouse can address their challenges.
+          - Link to relevant content assets (case studies, blog posts, whitepapers, webinars, etc.) by leveraging a Content Search Tool to find the most valuable follow-up materials.
 
-          Lead Form Responses:
-            %s
+          Tools & Data Sources:
+          - Company Website Lookup Tool - Extracts company details, news, and strategic initiatives.
+          - Salesforce Data Access - Retrieves CRM insights on past interactions, engagement status, and previous outreach.
+          - Clearbit Enrichment API - Provides firmographic and contact-level data, including company size, funding, tech stack, and key decision-makers.
+          - LinkedIn Profile API - Gathers professional history, recent activity, and mutual connections for better personalization.
+
+          Lead Data:
+          - Lead Form Responses: %s
+          - Lead Evaluation: %s
 
           %s
 
-          Expected Output - Research Report:
-          The research report should be concise and actionable, containing:
+          Expected Output - 3-Email Nurture Campaign:
+          Each email should be concise, engaging, and sequenced effectively, containing:
+          1. Personalized Opening - Address the lead by name and reference a relevant insight from their company, role, or industry trends.
+          2. Key Challenge & Value Proposition - Identify a pain point or opportunity based on lead data and explain how StratusAI Warehouse solves it.
+          3. Relevant Content Asset - Include a blog post, case study, or whitepaper that aligns with the lead's interests.
+          4. Clear Call to Action (CTA) - Encourage engagement with a low-friction action (e.g., reading content, replying, scheduling a chat).
+          5. Progressive Value Addition - Ensure each email builds upon the last, gradually increasing lead engagement and urgency.
 
-          Industry Overview - Key trends, challenges, and AI adoption patterns in the lead's industry.
-          Company Insights - Size, market position, strategic direction, and recent news.
-          Potential Use Cases - How StratusAI Warehouse could provide value to the lead's company.
-          Lead Quality Assessment - Based on available data, engagement signals, and fit for StratusDB's ideal customer profile.
-          Additional Insights - Any relevant information that can aid in outreach planning or lead prioritization.
-          """
-          .formatted(leadDetails, productDescription);
+          Output Format
+          - The output must be strictly formatted as JSON, with no additional text, commentary, or explanation.
+          - Make sure the JSON format is valid. If not, regenerate with valid JSON.
+          - The JSON must strictly follow this structure:
+          {
+            "emails": [
+              {
+                "to": "[Lead's Email Address]",
+                "subject": "[Subject Line for Email 1]",
+                "body": "[Email Body for Email 1]"
+              },
+              {
+                "to": "[Lead's Email Address]",
+                "subject": "[Subject Line for Email 2]",
+                "body": "[Email Body for Email 2]"
+              },
+              {
+                "to": "[Lead's Email Address]",
+                "subject": "[Subject Line for Email 3]",
+                "body": "[Email Body for Email 3]"
+              }
+            ]
+          }
+
+          Failure to strictly follow this format will result in incorrect output.
+             """
+          .formatted(leadDetails, context, productDescription);
     }
 
     private static String callFunction(ChatCompletionMessageToolCall.Function function) {
       if (function.name().equals("getCompanyWebsite")) {
         return AgentTools.getCompanyWebsite(function);
-
       } else if (function.name().equals("getSalesforceData")) {
         return AgentTools.getSalesforceData(function);
       } else if (function.name().equals("getClearbitData")) {
         return AgentTools.getClearbitData(function);
+      } else if (function.name().equals("getRecentLinkedInPosts")) {
+        return AgentTools.getRecentLinkedInPosts(function);
       }
 
       throw new IllegalArgumentException("Unknown function: " + function.name());
