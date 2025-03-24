@@ -17,7 +17,7 @@ Each agent is designed to run as a Flink job with a brain that communicates via 
 The diagram below illustrates how these agents interact through event-driven messaging.
 
 <p align="center">
-  <img src="/images/architecture-diagram.png" />
+  <img src="images/architecture-diagram.png" />
 </p>
 
 ## How it works
