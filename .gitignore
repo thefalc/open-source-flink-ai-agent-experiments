@@ -1,3 +1,11 @@
+.DS_Store
+
+*/target/*
+
+.env
+consumer.properties
+producer.properties
+
 # Compiled class file
 *.class
 
