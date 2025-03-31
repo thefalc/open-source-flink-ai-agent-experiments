@@ -295,7 +295,7 @@ Next, we are going to create a topic for the LeadScoringAgentJob to write to.
 
 * Save the schema
 
-Finall, we are going to create a topic to write the email campaigns to.
+Finally, we are going to create a topic to write the email campaigns to.
 
 * Go to your Kafka cluster and click on **Topics** in the sidebar.
 * Name the topic as `email_campaigns`.
@@ -355,7 +355,7 @@ Finall, we are going to create a topic to write the email campaigns to.
 
 1. In a terminal, navigate to your project directory. Run the app with the following command:
 ```shell
-maven clean build
+mvn clean build
 flink run -c agents.LeadIngestionAgentJob  target/ai-sdr-0.1.jar
 flink run -c agents.LeadScoringAgentJob  target/ai-sdr-0.1.jar
 flink run -c agents.ActiveOutreachAgentJob  target/ai-sdr-0.1.jar
@@ -377,4 +377,4 @@ flink run -c agents.NurtureCampaignAgentJob  target/ai-sdr-0.1.jar
   }
 }
 ```
-5. Wait for the agent flow to complete. If everything goes well, after a few minutes you'll have an email campaign in the the `email_campaigns` topic.
+5. Wait for the agent flow to complete. If everything goes well, after a few minutes you'll have an email campaign in the `email_campaigns` topic.
