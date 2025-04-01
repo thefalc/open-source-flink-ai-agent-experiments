@@ -103,6 +103,7 @@ public class ActiveOutreachAgentJob {
         // Process all incoming leads and write the agent output to the outgoing topic
         tEnv.createTemporarySystemFunction("ActiveOutreachFunction", new ActiveOutreachFunction(apiKey));
         tEnv.from("lead_scoring_output").select(call("ActiveOutreachFunction", $("raw_data")).as("campaign_email"))
+                .limit(1)
                 .filter($("campaign_email").isNotEqual(""))
                 .insertInto("email_campaigns").execute();
     }
@@ -308,13 +309,13 @@ public class ActiveOutreachAgentJob {
 
         private static String callFunction(ChatCompletionMessageToolCall.Function function) {
             if (function.name().equals("getCompanyWebsite")) {
-                return "";//AgentTools.getCompanyWebsite(function);
+                return AgentTools.getCompanyWebsite(function);
             } else if (function.name().equals("getSalesforceData")) {
-                return "";//AgentTools.getSalesforceData(function);
+                return AgentTools.getSalesforceData(function);
             } else if (function.name().equals("getClearbitData")) {
-                return "";//AgentTools.getClearbitData(function);
+                return AgentTools.getClearbitData(function);
             } else if (function.name().equals("getRecentLinkedInPosts")) {
-                return "";//AgentTools.getRecentLinkedInPosts(function);
+                return AgentTools.getRecentLinkedInPosts(function);
             }
 
             throw new IllegalArgumentException("Unknown function: " + function.name());

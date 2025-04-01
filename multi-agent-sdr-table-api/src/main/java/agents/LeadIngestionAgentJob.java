@@ -248,13 +248,12 @@ public class LeadIngestionAgentJob {
         }
 
         private static String callFunction(ChatCompletionMessageToolCall.Function function) {
-            // TODO: add the actual tool calls here
             if (function.name().equals("getCompanyWebsite")) {
-                return "";// AgentTools.getCompanyWebsite(function);
+                return AgentTools.getCompanyWebsite(function);
             } else if (function.name().equals("getSalesforceData")) {
-                return "";// AgentTools.getSalesforceData(function);
+                return AgentTools.getSalesforceData(function);
             } else if (function.name().equals("getClearbitData")) {
-                return "";// AgentTools.getClearbitData(function);
+                return AgentTools.getClearbitData(function);
             }
 
             throw new IllegalArgumentException("Unknown function: " + function.name());

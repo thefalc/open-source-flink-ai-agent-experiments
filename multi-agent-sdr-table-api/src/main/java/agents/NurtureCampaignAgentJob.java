@@ -324,13 +324,13 @@ public class NurtureCampaignAgentJob {
 
         private static String callFunction(ChatCompletionMessageToolCall.Function function) {
             if (function.name().equals("getCompanyWebsite")) {
-                return "";//AgentTools.getCompanyWebsite(function);
+                return AgentTools.getCompanyWebsite(function);
             } else if (function.name().equals("getSalesforceData")) {
-                return "";//AgentTools.getSalesforceData(function);
+                return AgentTools.getSalesforceData(function);
             } else if (function.name().equals("getClearbitData")) {
-                return "";//AgentTools.getClearbitData(function);
+                return AgentTools.getClearbitData(function);
             } else if (function.name().equals("getRecentLinkedInPosts")) {
-                return "";//AgentTools.getRecentLinkedInPosts(function);
+                return AgentTools.getRecentLinkedInPosts(function);
             }
 
             throw new IllegalArgumentException("Unknown function: " + function.name());
