@@ -2,9 +2,12 @@
 
 */target/*
 
+*.idea
+
 .env
 consumer.properties
 producer.properties
+client.properties
 
 # Compiled class file
 *.class
