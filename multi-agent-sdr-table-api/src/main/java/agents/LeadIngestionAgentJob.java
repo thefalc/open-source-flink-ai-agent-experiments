@@ -21,8 +21,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.flink.table.api.TableEnvironment;
@@ -50,11 +48,10 @@ import static org.apache.flink.table.api.Expressions.*;
 
 import tools.AgentTools;
 import util.Constants;
+import util.KafkaConfig;
 
-import java.io.InputStream;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Properties;
 
 public class LeadIngestionAgentJob {
     public static final String SYSTEM_PROMPT = "You're an Industry Research Specialist at StratusDB, a cloud-native, AI-powered data warehouse built for B2B "
@@ -71,26 +68,10 @@ public class LeadIngestionAgentJob {
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         String apiKey = dotenv.get("OPENAI_API_KEY");
 
-        Properties consumerConfig = new Properties();
-        try (InputStream stream = LeadIngestionAgentJob.class.getClassLoader().getResourceAsStream("client.properties")) {
-            consumerConfig.load(stream);
-        }
-
-        // Grab Kafka configuration parameters
-        String bootstrapServers = consumerConfig.get("bootstrap.servers").toString();
-        String jaasConfig = consumerConfig.get("sasl.jaas.config").toString();
-
-        // Define regex patterns for username and password
-        Pattern usernamePattern = Pattern.compile("username='([^']*)'");
-        Pattern passwordPattern = Pattern.compile("password='([^']*)'");
-
-        // Extract username
-        Matcher usernameMatcher = usernamePattern.matcher(jaasConfig);
-        String username = usernameMatcher.find() ? usernameMatcher.group(1) : null;
-
-        // Extract password
-        Matcher passwordMatcher = passwordPattern.matcher(jaasConfig);
-        String password = passwordMatcher.find() ? passwordMatcher.group(1) : null;
+        KafkaConfig kafkaConfig = new KafkaConfig("client.properties");
+        String bootstrapServers = kafkaConfig.getBootstrapServers();
+        String username = kafkaConfig.getUsername();
+        String password = kafkaConfig.getPassword();
 
         // Define the input for the agent
         tEnv.executeSql(

@@ -12,11 +12,7 @@ At a high level, the initial system consists of the following key agents:
 * Active Outreach Agent: Creates personalized outreach emails using AI-driven content generation, incorporating insights from the lead’s online presence, trying to book a meeting
 * Nurture Campaign Agent: Dynamically creates a sequence of emails based on where the lead originated and what their interest was.
 
-The diagram below illustrates how these agents interact through event-driven messaging.
 
-<p align="center">
-  <img src="images/architecture-diagram.png" />
-</p>
 
 
 ## How it works
@@ -354,11 +350,11 @@ Finall, we are going to create a topic to write the email campaigns to.
 
 1. In a terminal, navigate to your project directory. Run the app with the following command:
 ```shell
-mvn clean build
-flink run -c agents.LeadIngestionAgentJob  target/ai-sdr-table-api-0.1.jar
-flink run -c agents.LeadScoringAgentJob  target/ai-sdr-table-api-0.1.jar
-flink run -c agents.ActiveOutreachAgentJob  target/ai-sdr-table-api-0.1.jar
-flink run -c agents.NurtureCampaignAgentJob  target/ai-sdr-table-api-0.1.jar
+maven clean build
+flink run -c agents.LeadIngestionAgentJob  target/ai-sdr-0.1.jar
+flink run -c agents.LeadScoringAgentJob  target/ai-sdr-0.1.jar
+flink run -c agents.ActiveOutreachAgentJob  target/ai-sdr-0.1.jar
+flink run -c agents.NurtureCampaignAgentJob  target/ai-sdr-0.1.jar
 ```
 2. In Confluent Cloud, navigate to the `incoming_leads` topic.
 3. Click **Actions > Produce new message**
