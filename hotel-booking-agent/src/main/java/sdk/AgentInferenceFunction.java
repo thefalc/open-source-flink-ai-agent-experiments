@@ -56,19 +56,19 @@ public class AgentInferenceFunction extends ScalarFunction {
 
             System.out.println("Executing agent: " + agent.getName());
 
-            List<Tool> tools = ToolRegistry.getToolsForAgent(agent.getName());
-            String currentContext = cleanedJson;
-            if (!tools.isEmpty()) {
-                currentContext = ModelToolsPrediction.llm_tool_invoke(agent.getModel(), currentContext, tools);
-            }
+            // List<Tool> tools = ToolRegistry.getToolsForAgent(agent.getName());
+            // String currentContext = cleanedJson;
+            // if (!tools.isEmpty()) {
+            //     currentContext = ModelToolsPrediction.llm_tool_invoke(agent.getModel(), currentContext, tools);
+            // }
 
-//            String response = ModelPredict.ml_predict(agent.getModel(), agent.getPrompt(cleanedJson));
+            String response = ModelPredict.ml_predict(agent.getModel(), agent.getPrompt(cleanedJson));
 
 
             System.out.println("Inference response: ");
-            System.out.println(currentContext);
+            System.out.println(response);
 
-            return currentContext;
+            return response;
         } catch (Exception e) {
             e.printStackTrace();
             return e.getMessage();
