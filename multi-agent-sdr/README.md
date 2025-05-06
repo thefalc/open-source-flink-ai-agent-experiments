@@ -355,7 +355,7 @@ Finally, we are going to create a topic to write the email campaigns to.
 
 1. In a terminal, navigate to your project directory. Run the app with the following command:
 ```shell
-mvn clean build
+mvn clean package
 flink run -c agents.LeadIngestionAgentJob  target/ai-sdr-0.1.jar
 flink run -c agents.LeadScoringAgentJob  target/ai-sdr-0.1.jar
 flink run -c agents.ActiveOutreachAgentJob  target/ai-sdr-0.1.jar

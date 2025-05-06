@@ -12,9 +12,6 @@ At a high level, the initial system consists of the following key agents:
 * Active Outreach Agent: Creates personalized outreach emails using AI-driven content generation, incorporating insights from the lead’s online presence, trying to book a meeting
 * Nurture Campaign Agent: Dynamically creates a sequence of emails based on where the lead originated and what their interest was.
 
-
-
-
 ## How it works
 As a user, you can enter a lead the `incoming_leads` Kafak topic. This starts the multi-agent process. In a real application, a form or CRM would populate the 
 `incoming_leads` topic.
@@ -44,13 +41,13 @@ git clone https://github.com/thefalc/open-source-flink-ai-agent-experiments.git
 
 ### Configure the AI SDR application
 
-Go into your `multi-agent-sdr` folder and create a `.env` file with your OpenAI API key.
+Go into your `multi-agent-sdr-table-api` folder and create a `.env` file with your OpenAI API key.
 
 ```bash
 OPENAI_API_KEY=REPLACE_ME
 ```
 
-Next, following the [instructions](https://docs.confluent.io/cloud/current/client-apps/config-client.html) to create a new Java client. Once the client downloads, unzip it and find the `client.properties` file. Copy this as `consumer.properties` and `producer.properties` into the /open-source-flink-ai-agent-experiments/multi-agent-sdr/src/main/resources folder.
+Next, following the [instructions](https://docs.confluent.io/cloud/current/client-apps/config-client.html) to create a new Java client. Once the client downloads, unzip it and find the `client.properties` file. Copy this file into the /open-source-flink-ai-agent-experiments/multi-agent-sdr-table-api/src/main/resources folder.
 
 ### Setting up Confluent Cloud
 
@@ -350,7 +347,7 @@ Finall, we are going to create a topic to write the email campaigns to.
 
 1. In a terminal, navigate to your project directory. Run the app with the following command:
 ```shell
-maven clean build
+mvn clean package 
 flink run -c agents.LeadIngestionAgentJob  target/ai-sdr-0.1.jar
 flink run -c agents.LeadScoringAgentJob  target/ai-sdr-0.1.jar
 flink run -c agents.ActiveOutreachAgentJob  target/ai-sdr-0.1.jar
