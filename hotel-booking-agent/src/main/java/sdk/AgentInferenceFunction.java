@@ -1,12 +1,13 @@
 package sdk;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.JsonValue;
 import com.openai.models.ChatModel;
-import com.openai.models.chat.completions.ChatCompletion;
-import com.openai.models.chat.completions.ChatCompletionCreateParams;
-import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ScanResult;
+import com.openai.models.FunctionDefinition;
+import com.openai.models.FunctionParameters;
+import com.openai.models.chat.completions.*;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.ScalarFunction;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,8 +15,7 @@ import sdk.tools.Tool;
 import sdk.tools.ToolRegistry;
 import tools.AgentTools;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class AgentInferenceFunction extends ScalarFunction {
@@ -37,6 +37,7 @@ public class AgentInferenceFunction extends ScalarFunction {
                 .build();
 
         ModelPredict.init(client);
+        ModelToolsPrediction.init(client);
 
         if (!initialized) {
             AgentTools.bootstrapAgents("agents");
@@ -56,14 +57,16 @@ public class AgentInferenceFunction extends ScalarFunction {
 
             System.out.println("Executing agent: " + agent.getName());
 
-            // List<Tool> tools = ToolRegistry.getToolsForAgent(agent.getName());
-            // String currentContext = cleanedJson;
-            // if (!tools.isEmpty()) {
-            //     currentContext = ModelToolsPrediction.llm_tool_invoke(agent.getModel(), currentContext, tools);
-            // }
-
-            String response = ModelPredict.ml_predict(agent.getModel(), agent.getPrompt(cleanedJson));
-
+            List<Tool> tools = ToolRegistry.getToolsForAgent(agent.getName());
+            String response;
+            if (!tools.isEmpty()) {
+                response = ModelToolsPrediction.llm_tool_invoke(agent.getModel(), agent.getName(),
+                        agent.getPrompt(cleanedJson), tools);
+                System.out.println("currentContext : " + response);
+            }
+            else {
+                response = ModelPredict.ml_predict(agent.getModel(), agent.getPrompt(cleanedJson));
+            }
 
             System.out.println("Inference response: ");
             System.out.println(response);
@@ -114,30 +117,85 @@ class ModelToolsPrediction {
         client = clientInstance;
     }
 
-    public static String llm_tool_invoke(ModelDefinition model, String input, List<Tool> tools) {
-        System.out.println("Input: ");
-        System.out.println(input);
+    public static String llm_tool_invoke(ModelDefinition model, String agentName, String input, List<Tool> tools) {
+        ChatCompletionCreateParams.Builder builder = buildChatRequest(model, input, tools);
 
-        System.out.println("System: ");
-        System.out.println(model.getSystemPrompt());
+        // Initial model call
+        ChatCompletion firstCall = client.chat().completions().create(builder.build());
+
+        // Extract tool calls and update builder with their results
+        processToolCalls(firstCall, agentName, builder);
+
+        // Follow-up model call with tool results
+        ChatCompletion secondCall = client.chat().completions().create(builder.build());
+
+        return extractFinalResponse(secondCall);
+    }
+
+    private static ChatCompletionCreateParams.Builder buildChatRequest(ModelDefinition model, String input, List<Tool> tools) {
+        ChatCompletionCreateParams.Builder builder = ChatCompletionCreateParams.builder()
+                .model(ChatModel.of(model.getProvider()))
+                .maxCompletionTokens(2048)
+                .addDeveloperMessage(model.getSystemPrompt())
+                .addUserMessage(input);
 
         for (Tool tool : tools) {
-            System.out.println("Tool: " + tool.getName());
+            Map<String, Object> properties = tool.getParameters().entrySet().stream()
+                    .collect(Collectors.toMap(
+                            Map.Entry::getKey,
+                            e -> Map.of("type", e.getValue())
+                    ));
+
+            builder.addTool(ChatCompletionTool.builder()
+                    .function(FunctionDefinition.builder()
+                            .name(tool.getName())
+                            .description(tool.getDescription())
+                            .parameters(FunctionParameters.builder()
+                                    .putAdditionalProperty("type", JsonValue.from("object"))
+                                    .putAdditionalProperty("properties", JsonValue.from(properties))
+                                    .putAdditionalProperty("required", JsonValue.from(new ArrayList<>(tool.getParameters().keySet())))
+                                    .putAdditionalProperty("additionalProperties", JsonValue.from(false))
+                                    .build())
+                            .build())
+                    .build());
         }
 
-        return "";
+        return builder;
+    }
 
-//        ChatCompletionCreateParams.Builder createParamsBuilder = ChatCompletionCreateParams.builder()
-//                .model(ChatModel.of(model.getProvider()))
-//                .maxCompletionTokens(2048)
-//                .addDeveloperMessage(model.getSystemPrompt())
-//                .addUserMessage(input);
-//
-//        ChatCompletion chatCompletion = client.chat().completions().create(createParamsBuilder.build());
-//        String responseContent = chatCompletion.choices().stream()
-//                .map(choice -> choice.message().content().orElse(""))
-//                .collect(Collectors.joining("\n"));
-//
-//        return responseContent;
+    private static void processToolCalls(ChatCompletion response, String agentName, ChatCompletionCreateParams.Builder builder) {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        response.choices().stream()
+                .map(ChatCompletion.Choice::message)
+                .peek(builder::addMessage)
+                .flatMap(message -> message.toolCalls().stream().flatMap(Collection::stream))
+                .forEach(toolCall -> {
+                    String toolName = toolCall.function().name();
+
+                    try {
+                        String rawJson = toolCall.function().arguments();
+                        Map<String, Object> args = objectMapper.readValue(rawJson, new TypeReference<>() {});
+
+                        Tool tool = ToolRegistry.getToolForAgent(agentName, toolName)
+                                .orElseThrow(() -> new RuntimeException("Tool not found: " + toolName));
+
+                        String toolResult = tool.invoke(args);
+
+                        builder.addMessage(ChatCompletionToolMessageParam.builder()
+                                .toolCallId(toolCall.id())
+                                .content(toolResult)
+                                .build());
+
+                    } catch (Exception e) {
+                        throw new RuntimeException("Failed to invoke tool: " + toolName, e);
+                    }
+                });
+    }
+
+    private static String extractFinalResponse(ChatCompletion response) {
+        return response.choices().stream()
+                .map(choice -> choice.message().content().orElse(""))
+                .collect(Collectors.joining("\n"));
     }
 }

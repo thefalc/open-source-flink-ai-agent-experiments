@@ -17,7 +17,7 @@ public class HotelInsightsAgent implements Agent {
     private final ModelDefinition modelDefinition;
 
     public HotelInsightsAgent() {
-        modelDefinition = new ModelDefinition("hotel_insights_model", "gpt-4", getSystemMessage());
+        modelDefinition = new ModelDefinition("hotel_insights_model", "gpt-4o", getSystemMessage());
     }
 
     @Override
@@ -47,15 +47,15 @@ public class HotelInsightsAgent implements Agent {
     }
 
     @ToolFunction(name = "getHotelReviews", description = "Retrieve hotel reviews for a given hotel ID")
-    public String getHotelReviews(Map<String, Object> params) {
+    public String getHotelReviews(String hotelId) {
         System.out.println("getHotelReviews");
         return "No reviews found";
     }
 
     @ToolFunction(name = "getHotelAmenities", description = "Gets a list of the hotel amenities")
-    public String getHotelAmenities(Map<String, Object> params) {
+    public String getHotelAmenities(String hotelId) {
         System.out.println("getHotelAmenities");
-        return "They have a pool!";
+        return "They have a ferris wheel";
     }
 
     @Override
